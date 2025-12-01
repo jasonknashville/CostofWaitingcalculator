@@ -1,1 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cost of Waiting Calculator • Jason Kaczmarski Team</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --card-bg: #ffffff;
+      --accent: #004fbf;
+      --accent-soft: #e3efff;
+      --text-main: #1f2933;
+      --text-muted: #6b7280;
+      --border: #d1d5db;
+      --error: #b91c1c;
+      --radius-lg: 12px;
+      --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #e5f0ff 0, #f9fafb 50%);
+      color: var(--text-main);
+    }
+
+    .page-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 980px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: var(--shadow-soft);
+      padding: 24px;
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2.5fr);
+      gap: 32px;
+    }
+
+    @media (max-width: 900px) {
+      .card {
+        grid-template-columns: 1fr;
+        max-width: 640px;
+      }
+    }
+
+    .card-header {
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 4px;
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pill {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #1d4ed8;
+      border: 1px solid rgba(37, 99, 235, 0.12);
+      white-space: nowrap;
+    }
+
+    .section-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text-muted);
+      margin: 16px 0 6px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 16px;
+    }
+
+    @media (max-width: 600px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    label span.hint {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    input[type="number"],
+    input[type="text"] {
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+      width: 100%;
+    }
+
+    input[type="number"]:focus,
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+    }
+
+    .input-prefix {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .input-prefix span {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 9px 18px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+      white-space: nowrap;
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #ffffff;
+      box-shadow: 0 12px 25px rgba(37, 99, 235, 0.35);
+    }
+
+    button.primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 32px rgba(37, 99, 235, 0.4);
+    }
+
+    button.secondary {
+      background: #f3f4f6;
+      color: #111827;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+
+    button.secondary:hover {
+      transform: translateY(-1px);
+      background: #e5e7eb;
+    }
+
+    .button-icon {
+      font-size: 1rem;
+    }
+
+    .error {
+      font-size: 0.8rem;
+      color: var(--error);
+      margin-top: 6px;
+      display: none;
+    }
+
+    .results {
+      border-radius: var(--radius-lg);
+      border: 1px solid #e5e7eb;
+      padding: 16px 18px;
+      background: radial-gradient(circle at top left, #eff6ff 0, #ffffff 55%);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 160px;
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .results-title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .results-tag {
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #047857;
+      background: rgba(167, 243, 208, 0.15);
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 18px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 600px) {
+      .results-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .metric {
+      font-size: 0.85rem;
+    }
+
+    .metric-label {
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .metric-value {
+      font-weight: 600;
+    }
+
+    .highlight {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1d4ed8;
+    }
+
+    .note {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 10px;
+      line-height: 1.4;
+    }
+
+    .lease-note {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="card">
+      <!-- LEFT: Inputs -->
+      <div>
+        <div class="card-header">
+          <h1 class="title">Cost of Waiting Calculator</h1>
+          <p class="subtitle">
+            See how long it takes to “earn back” the rent you pay while waiting for lower mortgage rates — and what buying sooner could mean for your equity.
+          </p>
+          <div class="pill-row">
+            <div class="pill">Current rate default: 6.25%</div>
+            <div class="pill">Removes commas in inputs</div>
+            <div class="pill">No email or phone required to calculate</div>
+          </div>
+        </div>
+
+        <div class="section-label">Home details</div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="homePrice">
+              Home price
+              <span class="hint">Estimated purchase price</span>
+            </label>
+            <div class="input-prefix">
+              <span>$</span>
+              <input
+                type="text"
+                id="homePrice"
+                inputmode="decimal"
+                placeholder="450,000"
+                value="450000"
+              />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="downPaymentPercent">
+              Down payment %
+              <span class="hint">Of purchase price</span>
+            </label>
+            <div class="input-prefix">
+              <input
+                type="text"
+                id="downPaymentPercent"
+                inputmode="decimal"
+                placeholder="10"
+                value="10"
+              />
+              <span>%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Mortgage interest rates</div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="currentRate">
+              Today's rate
+              <span class="hint">Editable</span>
+            </label>
+            <div class="input-prefix">
+              <input
+                type="text"
+                id="currentRate"
+                inputmode="decimal"
+                value="6.25"
+              />
+              <span>%</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="targetRate">
+              Desired future rate
+              <span class="hint">What you're waiting for</span>
+            </label>
+            <div class="input-prefix">
+              <input
+                type="text"
+                id="targetRate"
+                inputmode="decimal"
+                placeholder="5.00"
+              />
+              <span>%</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="loanTermYears">
+              Loan term
+              <span class="hint">Years</span>
+            </label>
+            <div class="input-prefix">
+              <input
+                type="text"
+                id="loanTermYears"
+                inputmode="decimal"
+                value="30"
+              />
+              <span>yrs</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Rent & timing</div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="monthlyRent">
+              Current monthly rent
+            </label>
+            <div class="input-prefix">
+              <span>$</span>
+              <input
+                type="text"
+                id="monthlyRent"
+                inputmode="decimal"
+                placeholder="2,000"
+              />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="monthsWaiting">
+              Months you plan to keep renting
+              <span class="hint">While waiting for rates</span>
+            </label>
+            <input
+              type="text"
+              id="monthsWaiting"
+              inputmode="decimal"
+              placeholder="12"
+            />
+          </div>
+
+          <div class="field">
+            <label for="leaseRemaining">
+              Months left on current lease
+              <span class="hint">Info only (not used)</span>
+            </label>
+            <input
+              type="text"
+              id="leaseRemaining"
+              inputmode="decimal"
+              placeholder="e.g., 7"
+            />
+          </div>
+        </div>
+
+        <div id="errorMessage" class="error">
+          Please check your inputs — use numbers only (no symbols other than optional commas or decimal points).
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="primary" onclick="calculateCostOfWaiting()">
+            <span class="button-icon">📊</span>
+            <span>Calculate</span>
+          </button>
+          <button type="button" class="secondary" onclick="emailResults()">
+            <span class="button-icon">✉️</span>
+            <span>Email Me My Results</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Results -->
+      <div>
+        <div class="results" id="resultsBox">
+          <div class="results-header">
+            <div class="results-title">Your cost of waiting</div>
+            <div class="results-tag" id="resultsTag">Awaiting calculation</div>
+          </div>
+
+          <div class="results-grid">
+            <div class="metric">
+              <div class="metric-label">Monthly payment if you buy now</div>
+              <div class="metric-value" id="paymentNowDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Monthly payment at your desired rate</div>
+              <div class="metric-value" id="paymentLaterDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Monthly savings by waiting</div>
+              <div class="metric-value" id="monthlySavingsDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Rent paid while you wait</div>
+              <div class="metric-value" id="totalRentDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Time to break even after you buy</div>
+              <div class="metric-value highlight" id="breakEvenTimeDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Estimated equity if you bought instead*</div>
+              <div class="metric-value" id="equityDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Lease info (not used in math)</div>
+              <div class="metric-value" id="leaseInfoDisplay">—</div>
+            </div>
+          </div>
+
+          <p class="note">
+            “Break even” here means: how many months of lower mortgage payments at your desired rate
+            it would take to offset the rent you paid while waiting instead of buying at today’s rate.
+            The equity estimate assumes a standard amortizing loan and
+            <strong>3% annual home price appreciation</strong> from today until that break-even point.
+            This is a simplified illustration — not a forecast or guarantee.
+          </p>
+        </div>
+
+        <p class="lease-note">
+          Want help interpreting your numbers or plugging in more assumptions (taxes, insurance, appreciation, etc.)?
+          Reach out and we can review your situation together.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function sanitizeNumberInput(value) {
+      if (typeof value !== "string") return NaN;
+      const cleaned = value.replace(/,/g, "").trim();
+      if (cleaned === "") return NaN;
+      return parseFloat(cleaned);
+    }
+
+    function formatCurrency(value) {
+      if (!isFinite(value)) return "—";
+      return value.toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0
+      });
+    }
+
+    function formatCurrencyWithCents(value) {
+      if (!isFinite(value)) return "—";
+      return value.toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function formatMonthsToYearsMonths(months) {
+      if (!isFinite(months) || months < 0) return "—";
+      const rounded = Math.ceil(months);
+      const years = Math.floor(rounded / 12);
+      const remainingMonths = rounded % 12;
+
+      if (years === 0) {
+        return rounded + (rounded === 1 ? " month" : " months");
+      }
+
+      let text = years + (years === 1 ? " year" : " years");
+      if (remainingMonths > 0) {
+        text += " " + remainingMonths + (remainingMonths === 1 ? " month" : " months");
+      }
+      return text;
+    }
+
+    function calculateMonthlyPayment(principal, annualRatePercent, years) {
+      const r = (annualRatePercent / 100) / 12;
+      const n = years * 12;
+      if (r <= 0 || n <= 0 || principal <= 0) return NaN;
+      const factor = Math.pow(1 + r, n);
+      const payment = principal * (r * factor) / (factor - 1);
+      return payment;
+    }
+
+    function remainingBalance(principal, annualRatePercent, years, monthsPaid) {
+      const r = (annualRatePercent / 100) / 12;
+      const n = years * 12;
+      if (r <= 0 || n <= 0 || principal <= 0 || monthsPaid < 0) return NaN;
+      const m = Math.min(monthsPaid, n);
+      const factor = Math.pow(1 + r, n);
+      const factorPaid = Math.pow(1 + r, m);
+      const balance = principal * (factor - factorPaid) / (factor - 1);
+      return balance;
+    }
+
+    function calculateCostOfWaiting() {
+      const errorEl = document.getElementById("errorMessage");
+      const tagEl = document.getElementById("resultsTag");
+
+      // Read & sanitize inputs
+      const homePrice = sanitizeNumberInput(document.getElementById("homePrice").value);
+      const downPaymentPercent = sanitizeNumberInput(document.getElementById("downPaymentPercent").value);
+      const currentRate = sanitizeNumberInput(document.getElementById("currentRate").value);
+      const targetRate = sanitizeNumberInput(document.getElementById("targetRate").value);
+      const loanTermYears = sanitizeNumberInput(document.getElementById("loanTermYears").value);
+      const monthlyRent = sanitizeNumberInput(document.getElementById("monthlyRent").value);
+      const monthsWaiting = sanitizeNumberInput(document.getElementById("monthsWaiting").value);
+      const leaseRemainingRaw = document.getElementById("leaseRemaining").value.trim();
+      const leaseRemaining = sanitizeNumberInput(leaseRemainingRaw);
+
+      // Basic validation
+      if (
+        !isFinite(homePrice) ||
+        !isFinite(downPaymentPercent) ||
+        !isFinite(currentRate) ||
+        !isFinite(targetRate) ||
+        !isFinite(loanTermYears) ||
+        !isFinite(monthlyRent) ||
+        !isFinite(monthsWaiting)
+      ) {
+        errorEl.style.display = "block";
+        tagEl.textContent = "Error in inputs";
+        updateResultsDisplay(null);
+        return;
+      }
+
+      errorEl.style.display = "none";
+
+      if (targetRate >= currentRate) {
+        tagEl.textContent = "No savings from waiting";
+      } else {
+        tagEl.textContent = "Calculation complete";
+      }
+
+      const downPaymentAmount = homePrice * (downPaymentPercent / 100);
+      const loanAmount = homePrice - downPaymentAmount;
+
+      const paymentNow = calculateMonthlyPayment(loanAmount, currentRate, loanTermYears);
+      const paymentLater = calculateMonthlyPayment(loanAmount, targetRate, loanTermYears);
+
+      const monthlySavings = paymentNow - paymentLater;
+      const totalRentWhileWaiting = monthlyRent * monthsWaiting;
+
+      let monthsToBreakEven = NaN;
+      if (monthlySavings > 0 && totalRentWhileWaiting >= 0) {
+        monthsToBreakEven = totalRentWhileWaiting / monthlySavings;
+      }
+
+      // Equity if you bought now instead of renting,
+      // measured at the time when waiting finally breaks even
+      let potentialEquityAtBreakEven = NaN;
+      if (
+        isFinite(monthsToBreakEven) &&
+        monthsToBreakEven > 0 &&
+        isFinite(monthsWaiting) &&
+        monthsWaiting >= 0
+      ) {
+        const totalMonthsFromToday = Math.ceil(monthsWaiting + monthsToBreakEven);
+        const balanceThen = remainingBalance(loanAmount, currentRate, loanTermYears, totalMonthsFromToday);
+        const appreciationRateAnnual = 0.03;
+        const yearsTotal = totalMonthsFromToday / 12;
+        const appreciatedValue = homePrice * Math.pow(1 + appreciationRateAnnual, yearsTotal);
+        potentialEquityAtBreakEven = appreciatedValue - balanceThen;
+      }
+
+      const leaseInfo =
+        leaseRemainingRaw === ""
+          ? "Not provided"
+          : isFinite(leaseRemaining)
+          ? leaseRemaining + (leaseRemaining === 1 ? " month left" : " months left")
+          : "Not provided";
+
+      updateResultsDisplay({
+        paymentNow,
+        paymentLater,
+        monthlySavings,
+        totalRentWhileWaiting,
+        monthsToBreakEven,
+        leaseInfo,
+        potentialEquityAtBreakEven
+      });
+    }
+
+    function updateResultsDisplay(data) {
+      const paymentNowEl = document.getElementById("paymentNowDisplay");
+      const paymentLaterEl = document.getElementById("paymentLaterDisplay");
+      const monthlySavingsEl = document.getElementById("monthlySavingsDisplay");
+      const totalRentEl = document.getElementById("totalRentDisplay");
+      const breakEvenEl = document.getElementById("breakEvenTimeDisplay");
+      const equityEl = document.getElementById("equityDisplay");
+      const leaseInfoEl = document.getElementById("leaseInfoDisplay");
+
+      if (!data) {
+        paymentNowEl.textContent = "—";
+        paymentLaterEl.textContent = "—";
+        monthlySavingsEl.textContent = "—";
+        totalRentEl.textContent = "—";
+        breakEvenEl.textContent = "—";
+        equityEl.textContent = "—";
+        leaseInfoEl.textContent = "—";
+        return;
+      }
+
+      const {
+        paymentNow,
+        paymentLater,
+        monthlySavings,
+        totalRentWhileWaiting,
+        monthsToBreakEven,
+        leaseInfo,
+        potentialEquityAtBreakEven
+      } = data;
+
+      paymentNowEl.textContent = isFinite(paymentNow)
+        ? formatCurrencyWithCents(paymentNow) + " / mo"
+        : "—";
+
+      paymentLaterEl.textContent = isFinite(paymentLater)
+        ? formatCurrencyWithCents(paymentLater) + " / mo"
+        : "—";
+
+      monthlySavingsEl.textContent = isFinite(monthlySavings)
+        ? formatCurrencyWithCents(monthlySavings) + " / mo"
+        : "—";
+
+      totalRentEl.textContent = isFinite(totalRentWhileWaiting)
+        ? formatCurrency(totalRentWhileWaiting)
+        : "—";
+
+      breakEvenEl.textContent = isFinite(monthsToBreakEven) && monthsToBreakEven > 0
+        ? formatMonthsToYearsMonths(monthsToBreakEven)
+        : "—";
+
+      equityEl.textContent = isFinite(potentialEquityAtBreakEven)
+        ? formatCurrency(potentialEquityAtBreakEven)
+        : "—";
+
+      leaseInfoEl.textContent = leaseInfo || "—";
+    }
+
+    function emailResults() {
+      // Run calculation first to ensure results are current
+      calculateCostOfWaiting();
+
+      const homePrice = document.getElementById("homePrice").value.trim();
+      const downPaymentPercent = document.getElementById("downPaymentPercent").value.trim();
+      const currentRate = document.getElementById("currentRate").value.trim();
+      const targetRate = document.getElementById("targetRate").value.trim();
+      const loanTermYears = document.getElementById("loanTermYears").value.trim();
+      const monthlyRent = document.getElementById("monthlyRent").value.trim();
+      const monthsWaiting = document.getElementById("monthsWaiting").value.trim();
+      const leaseRemaining = document.getElementById("leaseRemaining").value.trim();
+
+      const paymentNow = document.getElementById("paymentNowDisplay").textContent;
+      const paymentLater = document.getElementById("paymentLaterDisplay").textContent;
+      const monthlySavings = document.getElementById("monthlySavingsDisplay").textContent;
+      const totalRentWhileWaiting = document.getElementById("totalRentDisplay").textContent;
+      const breakEvenTime = document.getElementById("breakEvenTimeDisplay").textContent;
+      const equityEstimate = document.getElementById("equityDisplay").textContent;
+
+      const subject = "Cost of Waiting Calculator Results";
+
+      const bodyLines = [
+        "Hi Jason,",
+        "",
+        "Here are my Cost of Waiting calculator results:",
+        "",
+        "Inputs:",
+        "----------------------",
+        "Home price: $" + homePrice,
+        "Down payment %: " + downPaymentPercent + "%",
+        "Today's rate: " + currentRate + "%", 
+        "Desired future rate: " + targetRate + "%", 
+        "Loan term: " + loanTermYears + " years",
+        "",
+        "Current monthly rent: $" + monthlyRent,
+        "Months I plan to keep renting while waiting: " + monthsWaiting,
+        "Months left on my lease (info only): " + (leaseRemaining || "Not provided"),
+        "",
+        "Results:",
+        "----------------------",
+        "Monthly payment if I buy now: " + paymentNow,
+        "Monthly payment at my desired rate: " + paymentLater,
+        "Monthly savings by waiting: " + monthlySavings,
+        "Rent paid while I wait: " + totalRentWhileWaiting,
+        "Time to break even after I buy: " + breakEvenTime,
+        "Estimated equity if I had bought instead by that break-even time: " + equityEstimate,
+        "",
+        "Notes:",
+        "This calculator assumes a standard amortizing loan and 3% annual home price appreciation.",
+        "It focuses on big-picture trade-offs and is not a guarantee or full financial plan.",
+        "",
+        "Please reach out so we can talk through what this might mean for my situation.",
+        "",
+        "Thanks!"
+      ];
+
+      const body = encodeURIComponent(bodyLines.join("\n"));
+
+      const recipient = "jason@jasonknashville.com";
+
+      window.location.href = "mailto:" + recipient + "?subject=" + encodeURIComponent(subject) + "&body=" + body;
+    }
+  </script>
+</body>
+</html>
 
