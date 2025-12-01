@@ -449,4 +449,395 @@
         </div>
 
         <div class="btn-row">
-          <button type="button" class="primary" onclick="calculate
+          <button type="button" class="primary" onclick="calculateCostOfWaiting()">
+            <span class="button-icon">📊</span>
+            <span>Calculate</span>
+          </button>
+          <button type="button" class="secondary" onclick="emailResults()">
+            <span class="button-icon">✉️</span>
+            <span>Email Me My Results</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Results -->
+      <div>
+        <div class="results" id="resultsBox">
+          <div class="results-header">
+            <div class="results-title">Your cost of waiting</div>
+            <div class="results-tag" id="resultsTag">Awaiting calculation</div>
+          </div>
+
+          <div class="results-grid">
+            <div class="metric">
+              <div class="metric-label">Monthly payment if you buy now</div>
+              <div class="metric-value" id="paymentNowDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Monthly payment at your desired rate</div>
+              <div class="metric-value" id="paymentLaterDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Monthly savings by waiting</div>
+              <div class="metric-value" id="monthlySavingsDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Rent paid while you wait</div>
+              <div class="metric-value" id="totalRentDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Time to break even after you buy</div>
+              <div class="metric-value highlight" id="breakEvenTimeDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Estimated equity at your break-even point if you had bought today*</div>
+              <div class="metric-value" id="equityDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Equity after your ownership period if you bought today (ignoring waiting)</div>
+              <div class="metric-value" id="equityNoWaitingDisplay">—</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label">Lease info (not used in math)</div>
+              <div class="metric-value" id="leaseInfoDisplay">—</div>
+            </div>
+          </div>
+
+          <p class="note">
+            “Break even” here means how many months of lower mortgage payments at your desired rate
+            it would take to offset the rent you paid while waiting instead of buying at today’s rate.
+            The equity estimate reflects what your equity could be
+            <strong>at your break-even point, assuming you had bought today</strong>,
+            using a standard amortizing loan and
+            <strong>3% annual home price appreciation</strong>.
+            This is a simplified illustration — not a forecast or guarantee.
+          </p>
+        </div>
+
+        <p class="lease-note">
+          Want help interpreting your numbers or plugging in more assumptions (taxes, insurance, appreciation, etc.)?
+          Reach out and we can review your situation together.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function sanitizeNumberInput(value) {
+      if (typeof value !== "string") return NaN;
+      const cleaned = value.replace(/,/g, "").trim();
+      if (cleaned === "") return NaN;
+      return parseFloat(cleaned);
+    }
+
+    // Use a default value if the field is blank; error out only if it's non-numeric
+    function getNumberOrDefault(id, defaultValue) {
+      const el = document.getElementById(id);
+      if (!el) return defaultValue;
+
+      const raw = el.value;
+      const cleaned = raw.replace(/,/g, "").trim();
+
+      if (cleaned === "") {
+        return defaultValue;
+      }
+
+      const num = parseFloat(cleaned);
+      return isFinite(num) ? num : NaN;
+    }
+
+    function formatCurrency(value) {
+      if (!isFinite(value)) return "—";
+      return value.toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0
+      });
+    }
+
+    function formatCurrencyWithCents(value) {
+      if (!isFinite(value)) return "—";
+      return value.toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function formatMonthsToYearsMonths(months) {
+      if (!isFinite(months) || months < 0) return "—";
+      const rounded = Math.ceil(months);
+      const years = Math.floor(rounded / 12);
+      const remainingMonths = rounded % 12;
+
+      if (years === 0) {
+        return rounded + (rounded === 1 ? " month" : " months");
+      }
+
+      let text = years + (years === 1 ? " year" : " years");
+      if (remainingMonths > 0) {
+        text += " " + remainingMonths + (remainingMonths === 1 ? " month" : " months");
+      }
+      return text;
+    }
+
+    function calculateMonthlyPayment(principal, annualRatePercent, years) {
+      const r = (annualRatePercent / 100) / 12;
+      const n = years * 12;
+      if (r <= 0 || n <= 0 || principal <= 0) return NaN;
+      const factor = Math.pow(1 + r, n);
+      const payment = principal * (r * factor) / (factor - 1);
+      return payment;
+    }
+
+    function remainingBalance(principal, annualRatePercent, years, monthsPaid) {
+      const r = (annualRatePercent / 100) / 12;
+      const n = years * 12;
+      if (r <= 0 || n <= 0 || principal <= 0 || monthsPaid < 0) return NaN;
+      const m = Math.min(monthsPaid, n);
+      const factor = Math.pow(1 + r, n);
+      const factorPaid = Math.pow(1 + r, m);
+      const balance = principal * (factor - factorPaid) / (factor - 1);
+      return balance;
+    }
+
+    function calculateCostOfWaiting() {
+      const errorEl = document.getElementById("errorMessage");
+      const tagEl = document.getElementById("resultsTag");
+
+      // Use defaults when fields are blank
+      const homePrice = getNumberOrDefault("homePrice", 450000);
+      const downPaymentPercent = getNumberOrDefault("downPaymentPercent", 10);
+      const currentRate = getNumberOrDefault("currentRate", 6.25);
+      const targetRate = getNumberOrDefault("targetRate", 5.0);
+      const loanTermYears = getNumberOrDefault("loanTermYears", 30);
+      const monthlyRent = getNumberOrDefault("monthlyRent", 2000);
+      const monthsWaiting = getNumberOrDefault("monthsWaiting", 12);
+
+      const leaseRemainingRaw = document.getElementById("leaseRemaining").value.trim();
+      const leaseRemaining = sanitizeNumberInput(leaseRemainingRaw);
+
+      // Validation: only fail if user types non-numeric
+      if (
+        !isFinite(homePrice) ||
+        !isFinite(downPaymentPercent) ||
+        !isFinite(currentRate) ||
+        !isFinite(targetRate) ||
+        !isFinite(loanTermYears) ||
+        !isFinite(monthlyRent) ||
+        !isFinite(monthsWaiting)
+      ) {
+        errorEl.style.display = "block";
+        tagEl.textContent = "Error in inputs";
+        updateResultsDisplay(null);
+        return;
+      }
+
+      errorEl.style.display = "none";
+
+      if (targetRate >= currentRate) {
+        tagEl.textContent = "No savings from waiting";
+      } else {
+        tagEl.textContent = "Calculation complete";
+      }
+
+      const downPaymentAmount = homePrice * (downPaymentPercent / 100);
+      const loanAmount = homePrice - downPaymentAmount;
+
+      const paymentNow = calculateMonthlyPayment(loanAmount, currentRate, loanTermYears);
+      const paymentLater = calculateMonthlyPayment(loanAmount, targetRate, loanTermYears);
+
+      const monthlySavings = paymentNow - paymentLater;
+      const totalRentWhileWaiting = monthlyRent * monthsWaiting;
+
+      let monthsToBreakEven = NaN;
+      if (monthlySavings > 0 && totalRentWhileWaiting >= 0) {
+        monthsToBreakEven = totalRentWhileWaiting / monthlySavings;
+      }
+
+      // Equity at break-even point if buyer had bought today (includes waiting + catch-up)
+      let potentialEquityAtBreakEven = NaN;
+      if (
+        isFinite(monthsToBreakEven) &&
+        monthsToBreakEven > 0 &&
+        isFinite(monthsWaiting) &&
+        monthsWaiting >= 0
+      ) {
+        const totalMonthsFromToday = Math.ceil(monthsWaiting + monthsToBreakEven);
+        const balanceThen = remainingBalance(loanAmount, currentRate, loanTermYears, totalMonthsFromToday);
+        const appreciationRateAnnual = 0.03;
+        const yearsTotal = totalMonthsFromToday / 12;
+        const appreciatedValue = homePrice * Math.pow(1 + appreciationRateAnnual, yearsTotal);
+        potentialEquityAtBreakEven = appreciatedValue - balanceThen;
+      }
+
+      // Equity after ownership period only (ignoring waiting time)
+      let equityIgnoringWaiting = NaN;
+      if (isFinite(monthsToBreakEven) && monthsToBreakEven > 0) {
+        const monthsOwned = Math.ceil(monthsToBreakEven);
+        const balanceOwned = remainingBalance(loanAmount, currentRate, loanTermYears, monthsOwned);
+        const appreciationRateAnnual = 0.03;
+        const yearsOwned = monthsOwned / 12;
+        const valueOwned = homePrice * Math.pow(1 + appreciationRateAnnual, yearsOwned);
+        equityIgnoringWaiting = valueOwned - balanceOwned;
+      }
+
+      const leaseInfo =
+        leaseRemainingRaw === ""
+          ? "Not provided"
+          : isFinite(leaseRemaining)
+          ? leaseRemaining + (leaseRemaining === 1 ? " month left" : " months left")
+          : "Not provided";
+
+      updateResultsDisplay({
+        paymentNow,
+        paymentLater,
+        monthlySavings,
+        totalRentWhileWaiting,
+        monthsToBreakEven,
+        leaseInfo,
+        potentialEquityAtBreakEven,
+        equityIgnoringWaiting
+      });
+    }
+
+    function updateResultsDisplay(data) {
+      const paymentNowEl = document.getElementById("paymentNowDisplay");
+      const paymentLaterEl = document.getElementById("paymentLaterDisplay");
+      const monthlySavingsEl = document.getElementById("monthlySavingsDisplay");
+      const totalRentEl = document.getElementById("totalRentDisplay");
+      const breakEvenEl = document.getElementById("breakEvenTimeDisplay");
+      const equityEl = document.getElementById("equityDisplay");
+      const equityNoWaitingEl = document.getElementById("equityNoWaitingDisplay");
+      const leaseInfoEl = document.getElementById("leaseInfoDisplay");
+
+      if (!data) {
+        paymentNowEl.textContent = "—";
+        paymentLaterEl.textContent = "—";
+        monthlySavingsEl.textContent = "—";
+        totalRentEl.textContent = "—";
+        breakEvenEl.textContent = "—";
+        equityEl.textContent = "—";
+        equityNoWaitingEl.textContent = "—";
+        leaseInfoEl.textContent = "—";
+        return;
+      }
+
+      const {
+        paymentNow,
+        paymentLater,
+        monthlySavings,
+        totalRentWhileWaiting,
+        monthsToBreakEven,
+        leaseInfo,
+        potentialEquityAtBreakEven,
+        equityIgnoringWaiting
+      } = data;
+
+      paymentNowEl.textContent = isFinite(paymentNow)
+        ? formatCurrencyWithCents(paymentNow) + " / mo"
+        : "—";
+
+      paymentLaterEl.textContent = isFinite(paymentLater)
+        ? formatCurrencyWithCents(paymentLater) + " / mo"
+        : "—";
+
+      monthlySavingsEl.textContent = isFinite(monthlySavings)
+        ? formatCurrencyWithCents(monthlySavings) + " / mo"
+        : "—";
+
+      totalRentEl.textContent = isFinite(totalRentWhileWaiting)
+        ? formatCurrency(totalRentWhileWaiting)
+        : "—";
+
+      breakEvenEl.textContent = isFinite(monthsToBreakEven) && monthsToBreakEven > 0
+        ? formatMonthsToYearsMonths(monthsToBreakEven)
+        : "—";
+
+      equityEl.textContent = isFinite(potentialEquityAtBreakEven)
+        ? formatCurrency(potentialEquityAtBreakEven)
+        : "—";
+
+      equityNoWaitingEl.textContent = isFinite(equityIgnoringWaiting)
+        ? formatCurrency(equityIgnoringWaiting)
+        : "—";
+
+      leaseInfoEl.textContent = leaseInfo || "—";
+    }
+
+    function emailResults() {
+      // Run calculation first to ensure results are current
+      calculateCostOfWaiting();
+
+      const homePrice = document.getElementById("homePrice").value.trim();
+      const downPaymentPercent = document.getElementById("downPaymentPercent").value.trim();
+      const currentRate = document.getElementById("currentRate").value.trim();
+      const targetRate = document.getElementById("targetRate").value.trim();
+      const loanTermYears = document.getElementById("loanTermYears").value.trim();
+      const monthlyRent = document.getElementById("monthlyRent").value.trim();
+      const monthsWaiting = document.getElementById("monthsWaiting").value.trim();
+      const leaseRemaining = document.getElementById("leaseRemaining").value.trim();
+
+      const paymentNow = document.getElementById("paymentNowDisplay").textContent;
+      const paymentLater = document.getElementById("paymentLaterDisplay").textContent;
+      const monthlySavings = document.getElementById("monthlySavingsDisplay").textContent;
+      const totalRentWhileWaiting = document.getElementById("totalRentDisplay").textContent;
+      const breakEvenTime = document.getElementById("breakEvenTimeDisplay").textContent;
+      const equityEstimate = document.getElementById("equityDisplay").textContent;
+      const equityIgnoringWaiting = document.getElementById("equityNoWaitingDisplay").textContent;
+
+      const subject = "Cost of Waiting Calculator Results";
+
+      const bodyLines = [
+        "Hi Jason,",
+        "",
+        "Here are my Cost of Waiting calculator results:",
+        "",
+        "Inputs:",
+        "----------------------",
+        "Home price: $" + homePrice,
+        "Down payment %: " + downPaymentPercent + "%",
+        "Today's rate: " + currentRate + "%", 
+        "Desired future rate: " + targetRate + "%", 
+        "Loan term: " + loanTermYears + " years",
+        "",
+        "Current monthly rent: $" + monthlyRent,
+        "Months I plan to keep renting while waiting: " + monthsWaiting,
+        "Months left on my lease (info only): " + (leaseRemaining || "Not provided"),
+        "",
+        "Results:",
+        "----------------------",
+        "Monthly payment if I buy now: " + paymentNow,
+        "Monthly payment at my desired rate: " + paymentLater,
+        "Monthly savings by waiting: " + monthlySavings,
+        "Rent paid while I wait: " + totalRentWhileWaiting,
+        "Time to break even after I buy: " + breakEvenTime,
+        "Estimated equity at my break-even point if I had bought today: " + equityEstimate,
+        "Equity after my ownership period if I bought today (ignoring waiting): " + equityIgnoringWaiting,
+        "",
+        "Notes:",
+        "This calculator assumes a standard amortizing loan and 3% annual home price appreciation.",
+        "It focuses on big-picture trade-offs and is not a guarantee or full financial plan.",
+        "",
+        "Please reach out so we can talk through what this might mean for my situation.",
+        "",
+        "Thanks!"
+      ];
+
+      const body = encodeURIComponent(bodyLines.join("\n"));
+      const recipient = "jason@jasonknashville.com";
+
+      window.location.href = "mailto:" + recipient + "?subject=" + encodeURIComponent(subject) + "&body=" + body;
+    }
+  </script>
+</body>
+</html>
+
